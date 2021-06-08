@@ -51,18 +51,22 @@ public class Main {
                     }
                     case '+': {
                         token = new Token(TokenType.Operator, OperatorType.Add);
+                        isLastCharOperator = true;
                         break;
                     }
                     case '-': {
                         token = new Token(TokenType.Operator, OperatorType.Sub);
+                        isLastCharOperator = true;
                         break;
                     }
                     case '*': {
                         token = new Token(TokenType.Operator, OperatorType.Mul);
+                        isLastCharOperator = true;
                         break;
                     }
                     case '/': {
                         token = new Token(TokenType.Operator, OperatorType.Div);
+                        isLastCharOperator = true;
                         break;
                     }
                     case ')': {
@@ -70,7 +74,6 @@ public class Main {
                         break;
                     }
                 }
-                isLastCharOperator = true;
             }
             tokens.add(token);
         }
