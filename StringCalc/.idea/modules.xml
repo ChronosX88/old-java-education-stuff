@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/UnnamedCalc.iml" filepath="$PROJECT_DIR$/UnnamedCalc.iml" />
+      <module fileurl="file://$PROJECT_DIR$/StringCalc.iml" filepath="$PROJECT_DIR$/StringCalc.iml" />
     </modules>
   </component>
 </project>

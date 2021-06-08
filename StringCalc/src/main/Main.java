@@ -1,88 +1,153 @@
 package main;
 
-import java.util.Scanner;
-import java.util.Stack;
-import java.util.stream.IntStream;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Main {
 
     public static void main(String[] args) {
-
         Scanner scanner = new Scanner(System.in);
         String line;
-        Stack<String> operators = new Stack<>();
-        Stack<Float> numbers = new Stack<>();
-
         line = scanner.nextLine();
-
-        char[] lineArray = new char[line.length()];
-
+        line = line.replace(" ", "");
+        line = line.replace("+-", "-");
+        line = line.replace("--", "+");
+        char[] lineArray;
         lineArray = line.toCharArray();
-
-        System.out.println(calcExpression(lineArray, operators, numbers));
+        List<Token> tokens = tokenize(lineArray);
+        System.out.println("[\n"+tokens.stream()
+                .map(item -> "\t"+item)
+                .collect(Collectors.joining(",\n"))+"\n]");
+        ASTNode node = parse(tokens);
+        System.out.println(node.toString());
+        int result = evaluateAST(node);
+        System.out.println(result);
     }
 
-    static float calcExpression(char[] charArr, Stack<String> operators, Stack<Float> numbers) {
-        for(int i = 0; i < charArr.length; i++) {
+    static List<Token> tokenize(char[] charArr) {
+        List<Token> tokens = new ArrayList<>();
+        StringBuilder tmpNumStr = new StringBuilder();
+        boolean isLastCharOperator = false;
+        for (int i = 0; i < charArr.length; i++) {
+            char c = charArr[i];
+            Token token = new Token(TokenType.Unknown, null);
+            if (Character.isDigit(c) || c == '-' && isLastCharOperator) {
+                isLastCharOperator = false;
+                tmpNumStr.append(c);
+                // if next char is also digit, then, instead of creating token, parse next digit
+                // if it's the end of array, then just create token and finish
+                if (i+1 != charArr.length) {
+                    if(Character.isDigit(charArr[i+1])) {
+                        continue;
+                    }
+                }
+                token = new Token(TokenType.Number, Integer.parseInt(tmpNumStr.toString()));
+                tmpNumStr = new StringBuilder();
+            } else {
+                switch (c) {
+                    case '(': {
+                        token = new Token(TokenType.Operator, OperatorType.LeftParenthesis);
+                        break;
+                    }
+                    case '+': {
+                        token = new Token(TokenType.Operator, OperatorType.Add);
+                        break;
+                    }
+                    case '-': {
+                        token = new Token(TokenType.Operator, OperatorType.Sub);
+                        break;
+                    }
+                    case '*': {
+                        token = new Token(TokenType.Operator, OperatorType.Mul);
+                        break;
+                    }
+                    case '/': {
+                        token = new Token(TokenType.Operator, OperatorType.Div);
+                        break;
+                    }
+                    case ')': {
+                        token = new Token(TokenType.Operator, OperatorType.RightParenthesis);
+                        break;
+                    }
+                }
+                isLastCharOperator = true;
+            }
+            tokens.add(token);
+        }
 
-            String operatorTemp;
-            float numberTemp;
+        return tokens;
+    }
 
-            if (charArr == null)
-                throw new IllegalArgumentException("Num не должен быть null");
+    static ASTNode parse(List<Token> tokens) {
+        Stack<ASTNode> output = new Stack<>();
+        Stack<Token> ops = new Stack<>();
+        for (Token token : tokens) {
+            // https://en.wikipedia.org/wiki/Shunting-yard_algorithm
 
-            switch(charArr[i]) {
-                case '(': {
-                    break;
-                }
-                case '+': {
-                    operators.push("+");
-                    break;
-                }
-                case '-': {
-                    operators.push("-");
-                    break;
-                }
-                case '*': {
-                    operators.push("*");
-                    break;
-                }
-                case '/': {
-                    operators.push("/");
-                    break;
-                }
-                case ')': {
-                    operatorTemp = operators.pop();
-                    numberTemp = numbers.pop();
+            if (token.type == TokenType.Number) {
+                output.add(new ASTNode(token));
+                continue;
+            }
 
-                    switch(operatorTemp) {
-                        case "+": {
-                            numberTemp = numbers.pop() + numberTemp;
-                            break;
-                        }
-                        case "-": {
-                            numberTemp = numbers.pop() - numberTemp;
-                            break;
-                        }
-                        case "*": {
-                            numberTemp = numbers.pop() * numberTemp;
-                            break;
-                        }
-                        case "/": {
-                            numberTemp = numbers.pop() / numberTemp;
+            if (token.type == TokenType.Operator) {
+                if (token.value == OperatorType.LeftParenthesis) {
+                    ops.push(token);
+                    continue;
+                }
+
+                while (ops.size() != 0) {
+                    if (ops.peek().value == OperatorType.LeftParenthesis) {
+                        break;
+                    }
+
+                    if (token.value != OperatorType.RightParenthesis) {
+                        if (OperatorType.getPrecedence((OperatorType) ops.peek().value) < OperatorType.getPrecedence((OperatorType) token.value)) {
                             break;
                         }
                     }
 
-                    numbers.push(numberTemp);
-                    break;
+                    Token op = ops.pop();
+                    ASTNode right = output.pop();
+                    ASTNode left = output.pop();
+                    output.push(new ASTNode(op, left, right));
                 }
-                default: {
-                    numbers.push(Float.parseFloat(String.valueOf(charArr[i])));
+                if (token.value == OperatorType.RightParenthesis) {
+                    ops.pop();
+                } else {
+                    ops.push(token);
                 }
             }
         }
 
-        return numbers.pop();
+        while(ops.size() != 0) {
+            Token op = ops.pop();
+            ASTNode right = output.pop();
+            ASTNode left = output.pop();
+            output.push(new ASTNode(op, left, right));
+        }
+        return output.pop();
+    }
+
+    static int evaluateAST(ASTNode node) {
+        int val = 0;
+        if (node.token.type == TokenType.Operator) {
+            switch ((OperatorType) node.token.value) {
+                case Add:
+                    val = evaluateAST(node.left) + evaluateAST(node.right);
+                    break;
+                case Sub:
+                    val = evaluateAST(node.left) - evaluateAST(node.right);
+                    break;
+                case Mul:
+                    val = evaluateAST(node.left) * evaluateAST(node.right);
+                    break;
+                case Div:
+                    val = evaluateAST(node.left) / evaluateAST(node.right);
+                    break;
+            }
+        } else {
+            val = (int) node.token.value;
+        }
+        return val;
     }
 }
